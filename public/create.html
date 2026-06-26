@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create a Potluck – Plan The Potluck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><span>🍽️</span> Plan The Potluck</a>
+    </div>
+  </nav>
+
+  <main class="create-page">
+    <div class="create-header">
+      <div class="emoji">✍️</div>
+      <h1>Create Your Potluck</h1>
+      <p>Fill in the details below and invite your people.</p>
+    </div>
+
+    <form class="create-form" id="createForm" novalidate>
+
+      <!-- Event Details -->
+      <div class="form-section">
+        <div class="form-section-title">🎉 Event Details</div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="form-group">
+            <label for="eventName">Event Name <span style="color:var(--orange)">*</span></label>
+            <input type="text" id="eventName" name="name" placeholder="e.g. Friendsgiving 2026, Summer BBQ" required maxlength="80" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="eventDate">Date <span style="color:var(--orange)">*</span></label>
+              <input type="date" id="eventDate" name="date" required />
+            </div>
+            <div class="form-group">
+              <label for="eventTime">Time <span style="color:var(--orange)">*</span></label>
+              <input type="time" id="eventTime" name="time" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="eventLocation">Location / Address <span style="color:var(--orange)">*</span></label>
+            <input type="text" id="eventLocation" name="location" placeholder="e.g. 123 Maple St, Brooklyn, NY" required />
+          </div>
+
+          <div class="form-group">
+            <label for="eventDesc">Description / Notes</label>
+            <textarea id="eventDesc" name="description" placeholder="Any extra info — theme, things to bring, parking notes…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Host Info -->
+      <div class="form-section">
+        <div class="form-section-title">👤 Your Info (Host)</div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="hostName">Your Name <span style="color:var(--orange)">*</span></label>
+              <input type="text" id="hostName" name="host_name" placeholder="Your full name" required />
+            </div>
+            <div class="form-group">
+              <label for="hostPhone">Your Phone <span style="color:var(--orange)">*</span></label>
+              <input type="tel" id="hostPhone" name="host_phone" placeholder="+1 555 000 0000" required />
+              <span class="form-hint">For host notifications only</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guest List -->
+      <div class="form-section">
+        <div class="form-section-title">👥 Guest List</div>
+        <p style="font-size:.875rem;margin-bottom:16px;">Add your guests' names and phone numbers. They'll receive a personal text invite with their RSVP link.</p>
+
+        <div class="guest-list" id="guestList">
+          <!-- Rows added by JS -->
+        </div>
+
+        <button type="button" class="btn-add-guest" id="addGuestBtn" style="margin-top:12px;width:100%;">
+          <span>+</span> Add Guest
+        </button>
+        <p class="form-hint" style="margin-top:8px;text-align:center;">You can add more guests after creating the event too.</p>
+      </div>
+
+      <!-- Submit -->
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+        <button type="submit" class="btn btn-primary btn-full" id="submitBtn" style="font-size:1.1rem;padding:16px;">
+          🎉 Create Potluck &amp; Send Invites
+        </button>
+        <p style="font-size:.8rem;color:var(--text-light);">
+          Invites will be sent via text/WhatsApp to all guest numbers.
+        </p>
+      </div>
+
+    </form>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script>
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    function toast(msg, type = 'success') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    // ── Guest row template ─────────────────────────────────────────────────────
+    let guestCount = 0;
+
+    function addGuestRow(name = '', phone = '') {
+      guestCount++;
+      const id = guestCount;
+      const list = document.getElementById('guestList');
+      const row = document.createElement('div');
+      row.className = 'guest-row';
+      row.dataset.id = id;
+      row.innerHTML = `
+        <div class="form-group">
+          ${id === 1 ? '<label>Name</label>' : ''}
+          <input type="text" placeholder="Guest name" value="${escHtml(name)}"
+                 class="guest-name" data-row="${id}" />
+        </div>
+        <div class="form-group">
+          ${id === 1 ? '<label>Phone Number</label>' : ''}
+          <input type="tel" placeholder="+1 555 000 0000" value="${escHtml(phone)}"
+                 class="guest-phone" data-row="${id}" />
+        </div>
+        <button type="button" class="btn-remove-guest" onclick="removeGuest(${id})" title="Remove guest"
+                style="${id === 1 ? 'margin-top:22px' : ''}">✕</button>
+      `;
+      list.appendChild(row);
+    }
+
+    function removeGuest(id) {
+      document.querySelector(`.guest-row[data-id="${id}"]`)?.remove();
+    }
+
+    function escHtml(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Start with 2 empty guest rows
+    addGuestRow(); addGuestRow();
+
+    document.getElementById('addGuestBtn').addEventListener('click', () => addGuestRow());
+
+    // ── Set min date to today ──────────────────────────────────────────────────
+    document.getElementById('eventDate').min = new Date().toISOString().split('T')[0];
+
+    // ── Form submission ────────────────────────────────────────────────────────
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const btn = document.getElementById('submitBtn');
+
+      // Collect guests
+      const guestRows = document.querySelectorAll('.guest-row');
+      const guests = [];
+      for (const row of guestRows) {
+        const name = row.querySelector('.guest-name').value.trim();
+        const phone = row.querySelector('.guest-phone').value.trim();
+        if (name && phone) guests.push({ name, phone });
+        else if (name || phone) {
+          toast('Please complete all guest rows (name + phone) or remove them.', 'error');
+          return;
+        }
+      }
+
+      const payload = {
+        name:        form.querySelector('#eventName').value.trim(),
+        date:        form.querySelector('#eventDate').value,
+        time:        form.querySelector('#eventTime').value,
+        location:    form.querySelector('#eventLocation').value.trim(),
+        description: form.querySelector('#eventDesc').value.trim(),
+        host_name:   form.querySelector('#hostName').value.trim(),
+        host_phone:  form.querySelector('#hostPhone').value.trim(),
+        guests,
+      };
+
+      if (!payload.name || !payload.date || !payload.time || !payload.location || !payload.host_name || !payload.host_phone) {
+        toast('Please fill in all required fields.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating…';
+
+      try {
+        const res = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+
+        // Redirect to host view
+        window.location.href = `/event/${data.eventId}?h=${data.hostToken}`;
+      } catch (err) {
+        toast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = '🎉 Create Potluck & Send Invites';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Potluck Event – Plan The Potluck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><span>🍽️</span> Plan The Potluck</a>
+      <span class="live-dot" id="liveIndicator" style="display:none">LIVE</span>
+    </div>
+  </nav>
+
+  <div id="app">
+    <div class="loading-state"><div class="spinner"></div></div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script>
+  (() => {
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    function toast(msg, type = 'success') {
+      const c = $('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3800);
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      try {
+        return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      } catch { return d; }
+    }
+
+    function formatTime(t) {
+      if (!t) return '';
+      try {
+        const [h, m] = t.split(':');
+        const d = new Date(); d.setHours(+h, +m);
+        return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+      } catch { return t; }
+    }
+
+    function initials(name) {
+      return (name || '?').split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);
+    }
+
+    // ── Parse URL ──────────────────────────────────────────────────────────────
+    const pathParts = window.location.pathname.split('/');
+    const eventId   = pathParts[2] || '';
+    const params    = new URLSearchParams(window.location.search);
+    const hostToken = params.get('h') || '';
+    const guestToken= params.get('g') || '';
+
+    let state = { event: null, guest: null, isHost: false };
+
+    // ── API calls ──────────────────────────────────────────────────────────────
+    async function api(method, path, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
+      const res = await fetch(path, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed.');
+      return data;
+    }
+
+    // ── SSE ────────────────────────────────────────────────────────────────────
+    function startSSE() {
+      const es = new EventSource(`/api/events/${eventId}/stream`);
+      es.onopen = () => { $('liveIndicator').style.display = 'inline-flex'; };
+      es.onmessage = e => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'guest_updated') {
+            state.event.guests = msg.guests;
+            renderDashboard();
+            if (state.guest) {
+              const fresh = msg.guests.find(g => g.guest_token === guestToken);
+              if (fresh) state.guest = fresh;
+              renderGuestActions();
+            }
+          } else if (msg.type === 'event_updated') {
+            state.event = { ...msg.event, guests: msg.event.guests || state.event.guests };
+            renderEventHero();
+            renderDashboard();
+          }
+        } catch {}
+      };
+      es.onerror = () => { $('liveIndicator').style.display = 'none'; };
+    }
+
+    // ── Compute stats ──────────────────────────────────────────────────────────
+    function computeStats(guests) {
+      const attending = guests.filter(g => g.rsvp === 'yes');
+      const headcount = attending.reduce((s,g) => s + (g.headcount||1), 0);
+      const declined  = guests.filter(g => g.rsvp === 'no').length;
+      const pending   = guests.filter(g => g.rsvp === 'pending').length;
+      const dishes    = attending.filter(g => g.dish).map(g => ({ name: g.name, dish: g.dish }));
+      return { headcount, attending: attending.length, declined, pending, dishes };
+    }
+
+    // ── Render: Event Hero ─────────────────────────────────────────────────────
+    function renderEventHero() {
+      const ev = state.event;
+      const heroEl = $('eventHero');
+      if (!heroEl) return;
+      heroEl.innerHTML = `
+        <div class="event-hero-inner">
+          <div class="event-role-badge">${state.isHost ? '👑 Host View' : '👤 Guest View'}</div>
+          <h1>${esc(ev.name)}</h1>
+          <div class="event-meta">
+            <span class="event-meta-item"><span class="event-meta-icon">📅</span>${esc(formatDate(ev.date))}</span>
+            <span class="event-meta-item"><span class="event-meta-icon">🕐</span>${esc(formatTime(ev.time))}</span>
+            <span class="event-meta-item"><span class="event-meta-icon">📍</span>${esc(ev.location)}</span>
+          </div>
+          ${ev.description ? `<p class="event-description">${esc(ev.description)}</p>` : ''}
+        </div>
+      `;
+    }
+
+    // ── Render: Stats Strip ────────────────────────────────────────────────────
+    function renderStats() {
+      const stats = computeStats(state.event.guests);
+      const el = $('statsStrip');
+      if (!el) return;
+      el.innerHTML = `
+        <div class="stats-inner">
+          <div class="stat-item">
+            <div class="stat-num" id="statHeadcount">${stats.headcount}</div>
+            <div class="stat-label">Attending</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">${stats.dishes.length}</div>
+            <div class="stat-label">Dishes Claimed</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">${stats.pending}</div>
+            <div class="stat-label">Pending RSVPs</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Render: Dashboard (shared) ─────────────────────────────────────────────
+    function renderDashboard() {
+      renderStats();
+      renderRoster();
+      renderMenu();
+    }
+
+    function renderRoster() {
+      const el = $('guestRoster');
+      if (!el) return;
+      const guests = [...state.event.guests].sort((a,b) => {
+        const order = { yes:0, pending:1, no:2 };
+        return (order[a.rsvp]??1) - (order[b.rsvp]??1);
+      });
+      if (!guests.length) {
+        el.innerHTML = '<div class="empty-state">No guests added yet.</div>';
+        return;
+      }
+      el.innerHTML = guests.map(g => `
+        <div class="roster-item">
+          <div class="roster-avatar">${esc(initials(g.name))}</div>
+          <div>
+            <div class="roster-name">${esc(g.name)}</div>
+            ${g.dish ? `<div class="roster-dish">🍴 ${esc(g.dish)}</div>` : ''}
+          </div>
+          <div class="roster-right">
+            <span class="badge badge-${g.rsvp}">
+              ${g.rsvp === 'yes' ? '✅ Coming' : g.rsvp === 'no' ? '❌ Can\'t make it' : '⏳ Pending'}
+            </span>
+            ${g.rsvp === 'yes' && g.headcount > 1 ? `<span class="roster-count">+${g.headcount-1} extra</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMenu() {
+      const el = $('potluckMenu');
+      if (!el) return;
+      const stats = computeStats(state.event.guests);
+      if (!stats.dishes.length) {
+        el.innerHTML = '<div class="empty-state">No dishes claimed yet — be the first! 🍽️</div>';
+        return;
+      }
+      el.innerHTML = stats.dishes.map(d => `
+        <div class="menu-item">
+          <div class="menu-dot"></div>
+          <div>
+            <div class="menu-dish">${esc(d.dish)}</div>
+            <div class="menu-by">by ${esc(d.name)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ── Render: Guest Actions ──────────────────────────────────────────────────
+    function renderGuestActions() {
+      const el = $('guestActions');
+      if (!el) return;
+      const g = state.guest;
+      el.innerHTML = `
+        <!-- RSVP -->
+        <div class="card" id="rsvpCard">
+          <div class="card-title">📋 Your RSVP</div>
+          <div class="rsvp-buttons">
+            <button class="btn-rsvp yes ${g.rsvp==='yes'?'active':''}" id="btnYes" onclick="handleRSVP('yes')">
+              ✅ Yes, I'm in!
+            </button>
+            <button class="btn-rsvp no ${g.rsvp==='no'?'active':''}" id="btnNo" onclick="handleRSVP('no')">
+              ❌ Can't make it
+            </button>
+          </div>
+          ${g.rsvp === 'yes' ? `
+          <div class="headcount-row">
+            <label for="headcountInput">Total people coming (including you):</label>
+            <input type="number" id="headcountInput" class="form-group input headcount-input"
+                   min="1" max="20" value="${g.headcount||1}"
+                   onchange="handleHeadcount(this.value)" />
+          </div>` : ''}
+        </div>
+
+        <!-- Dish sign-up -->
+        ${g.rsvp === 'yes' ? `
+        <div class="card">
+          <div class="card-title">🍴 Your Dish</div>
+          <p style="font-size:.875rem;margin-bottom:12px;">What are you bringing? Check the menu below to avoid duplicates.</p>
+          <div class="dish-row">
+            <input type="text" id="dishInput" class="form-group input"
+                   placeholder="e.g. Potato Salad, Vegan Brownies…"
+                   value="${esc(g.dish||'')}" />
+            <button class="btn btn-orange btn-sm" onclick="handleDishSave()">Save</button>
+          </div>
+          ${g.dish ? `<p style="margin-top:10px;font-size:.85rem;color:var(--green-dark);">✅ Currently signed up for: <strong>${esc(g.dish)}</strong></p>` : ''}
+        </div>` : ''}
+      `;
+    }
+
+    // ── Render: Host Panel ─────────────────────────────────────────────────────
+    function renderHostPanel() {
+      const el = $('hostPanel');
+      if (!el) return;
+      const ev = state.event;
+      el.innerHTML = `
+        <div class="host-panel">
+          <div class="host-panel-header">
+            <h3 style="display:flex;align-items:center;gap:8px;">👑 Host Controls</h3>
+            <button class="btn btn-outline btn-sm" id="editToggleBtn" onclick="toggleEditMode()">✏️ Edit Event</button>
+          </div>
+
+          <div id="editForm" style="display:none;">
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Event Name</label>
+                  <input id="editName" value="${esc(ev.name)}" />
+                </div>
+                <div class="form-group">
+                  <label>Location</label>
+                  <input id="editLocation" value="${esc(ev.location)}" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Date</label>
+                  <input type="date" id="editDate" value="${esc(ev.date)}" />
+                </div>
+                <div class="form-group">
+                  <label>Time</label>
+                  <input type="time" id="editTime" value="${esc(ev.time)}" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <textarea id="editDesc">${esc(ev.description||'')}</textarea>
+              </div>
+              <div style="display:flex;gap:10px;">
+                <button class="btn btn-primary btn-sm" onclick="handleEditSave()">💾 Save Changes</button>
+                <button class="btn btn-outline btn-sm" onclick="toggleEditMode()">Cancel</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Share link -->
+          <div class="share-strip" style="margin-top:${$('editForm') && $('editForm').style.display==='none' ? 0 : 16}px;">
+            <h3>🔗 Share Event Link</h3>
+            <p style="color:rgba(255,255,255,.78);font-size:.875rem;">Send this link to guests so they can RSVP.</p>
+            <div class="share-link-box">
+              <input type="text" id="shareInput" value="${window.location.origin}/event/${ev.id}" readonly onclick="this.select()" />
+              <button class="btn btn-sm" style="background:#fff;color:var(--green-dark);white-space:nowrap;"
+                      onclick="copyShare()">Copy</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Actions ────────────────────────────────────────────────────────────────
+
+    async function handleRSVP(rsvp) {
+      const headcount = parseInt(document.getElementById('headcountInput')?.value || 1);
+      try {
+        const updated = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp, headcount });
+        state.guest = updated;
+        renderGuestActions();
+        toast(rsvp === 'yes' ? "✅ You're in! Sign up for a dish below." : "We'll miss you! 💔");
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function handleHeadcount(val) {
+      const hc = Math.max(1, parseInt(val)||1);
+      try {
+        const updated = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp: state.guest.rsvp, headcount: hc });
+        state.guest = updated;
+        toast(`Headcount updated to ${hc} 👍`);
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function handleDishSave() {
+      const dish = document.getElementById('dishInput')?.value.trim() || '';
+      try {
+        const updated = await api('POST', `/api/guests/${guestToken}/dish`, { dish });
+        state.guest = updated;
+        renderGuestActions();
+        toast(dish ? `🍴 Saved: "${dish}"` : 'Dish removed.');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    let editOpen = false;
+    function toggleEditMode() {
+      editOpen = !editOpen;
+      const f = $('editForm');
+      if (f) f.style.display = editOpen ? 'block' : 'none';
+      const btn = $('editToggleBtn');
+      if (btn) btn.textContent = editOpen ? '✕ Cancel Edit' : '✏️ Edit Event';
+    }
+
+    async function handleEditSave() {
+      try {
+        const updated = await api('PATCH', `/api/events/${eventId}`, {
+          host_token: hostToken,
+          name:        $('editName')?.value.trim(),
+          date:        $('editDate')?.value,
+          time:        $('editTime')?.value,
+          location:    $('editLocation')?.value.trim(),
+          description: $('editDesc')?.value.trim(),
+        });
+        state.event = { ...updated, guests: state.event.guests };
+        toggleEditMode();
+        renderEventHero();
+        toast('✅ Event updated!');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    function copyShare() {
+      const inp = $('shareInput');
+      if (!inp) return;
+      navigator.clipboard?.writeText(inp.value).then(() => toast('Link copied! 📋'))
+        .catch(() => { inp.select(); document.execCommand('copy'); toast('Link copied! 📋'); });
+    }
+
+    // Make handlers global
+    window.handleRSVP = handleRSVP;
+    window.handleHeadcount = handleHeadcount;
+    window.handleDishSave = handleDishSave;
+    window.toggleEditMode = toggleEditMode;
+    window.handleEditSave = handleEditSave;
+    window.copyShare = copyShare;
+
+    // ── Full page render ────────────────────────────────────────────────────────
+    function renderPage() {
+      const ev = state.event;
+      $('app').innerHTML = `
+        <div class="event-page">
+          <div class="event-hero" id="eventHero"></div>
+          <div class="stats-strip" id="statsStrip"></div>
+
+          <div class="event-body">
+            ${state.isHost ? '<div id="hostPanel"></div>' : ''}
+            ${state.guest ? '<div id="guestActions"></div>' : ''}
+
+            <!-- Shared dashboard -->
+            <div class="card">
+              <div class="card-title">👥 Guest Roster</div>
+              <div class="guest-roster" id="guestRoster"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🍽️ The Potluck Menu</div>
+              <p style="font-size:.82rem;color:var(--text-light);margin-bottom:14px;">
+                Check what's already claimed before picking your dish!
+              </p>
+              <div class="menu-grid" id="potluckMenu"></div>
+            </div>
+
+            <!-- Guest links (host only) -->
+            ${state.isHost ? `
+            <div class="card">
+              <div class="card-title">📱 Guest Invite Links</div>
+              <p style="font-size:.875rem;margin-bottom:14px;">Individual links for each guest:</p>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                ${ev.guests.map(g => `
+                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="font-weight:600;min-width:120px;">${esc(g.name)}</span>
+                    <code style="font-size:.78rem;color:var(--text-mid);flex:1;word-break:break-all;">
+                      ${window.location.origin}/event/${ev.id}?g=${g.guest_token}
+                    </code>
+                    <button class="btn btn-outline btn-sm"
+                            onclick="navigator.clipboard.writeText('${window.location.origin}/event/${ev.id}?g=${g.guest_token}').then(()=>toast('Copied!'))">
+                      Copy
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>` : ''}
+          </div>
+        </div>
+      `;
+
+      renderEventHero();
+      renderDashboard();
+      if (state.isHost) renderHostPanel();
+      if (state.guest) renderGuestActions();
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    async function init() {
+      if (!eventId) {
+        $('app').innerHTML = '<div style="text-align:center;padding:60px 20px;"><h2>Event not found.</h2><a href="/" class="btn btn-primary" style="margin-top:20px;">← Back Home</a></div>';
+        return;
+      }
+
+      try {
+        // Fetch event (pass host token if present)
+        const url = `/api/events/${eventId}${hostToken ? `?h=${hostToken}` : ''}`;
+        const ev = await api('GET', url);
+        state.event = ev;
+        state.isHost = !!ev.isHost;
+
+        // Fetch guest if token present
+        if (guestToken) {
+          try {
+            const g = await api('GET', `/api/guests/${guestToken}`);
+            state.guest = g;
+          } catch { /* invalid token — render as observer */ }
+        }
+
+        document.title = `${ev.name} – Plan The Potluck`;
+        renderPage();
+        startSSE();
+      } catch(err) {
+        $('app').innerHTML = `
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="font-size:3rem;margin-bottom:12px;">😕</div>
+            <h2>Couldn't load event</h2>
+            <p style="margin:12px 0 24px;">${esc(err.message)}</p>
+            <a href="/" class="btn btn-primary">← Back Home</a>
+          </div>`;
+      }
+    }
+
+    init();
+  })();
+  </script>
+</body>
+</html>

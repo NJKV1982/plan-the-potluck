@@ -1,0 +1,4 @@
+node_modules/
+potluck-db.json
+*.log
+.env

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plan The Potluck – Coordinate Food, Not Chaos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Landing-only styles */
+    .wave-divider { line-height: 0; margin-top: -2px; }
+    .wave-divider svg { display: block; width: 100%; }
+    .social-proof { padding: 32px 20px; text-align: center; }
+    .proof-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
+    .proof-pill {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 99px; padding: 6px 16px; font-size: .875rem; color: var(--text-mid);
+      display: flex; align-items: center; gap: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav" role="navigation">
+    <div class="nav-inner">
+      <div class="nav-logo"><span>🍽️</span> Plan The Potluck</div>
+      <a href="/create.html" class="btn btn-primary btn-sm">Create a Potluck</a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero" aria-label="Hero">
+    <div class="container">
+      <div class="hero-emoji">🥘</div>
+      <h1>Coordinate Food,<br>Not Chaos.</h1>
+      <p>The easiest way to plan a potluck — invite your people, track dishes in real time, and make sure someone brings dessert.</p>
+      <div class="hero-cta-group">
+        <a href="/create.html" class="btn btn-hero">🎉 Create a Potluck</a>
+        <a href="#how-it-works" class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)">See How It Works</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Wave -->
+  <div class="wave-divider">
+    <svg viewBox="0 0 1440 60" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <path d="M0,40 C360,80 1080,0 1440,40 L1440,0 L0,0 Z" fill="#1e5c3a"/>
+    </svg>
+  </div>
+
+  <!-- Social proof pills -->
+  <div class="social-proof">
+    <p style="color:var(--text-light);font-size:.875rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Perfect for</p>
+    <div class="proof-pills">
+      <span class="proof-pill">🦃 Friendsgiving</span>
+      <span class="proof-pill">☀️ Summer BBQ</span>
+      <span class="proof-pill">🎄 Holiday Party</span>
+      <span class="proof-pill">🎂 Birthday Celebration</span>
+      <span class="proof-pill">🏢 Office Lunch</span>
+      <span class="proof-pill">🧺 Family Reunion</span>
+    </div>
+  </div>
+
+  <!-- How it Works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <h2>Three steps to a perfect potluck</h2>
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <div class="step-icon">✍️</div>
+          <h3>Create</h3>
+          <p>Fill in your event details and add your guest list with phone numbers.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <div class="step-icon">📱</div>
+          <h3>Invite</h3>
+          <p>Guests get a personal text link to RSVP and claim their dish — no app download needed.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <div class="step-icon">🍜</div>
+          <h3>Coordinate</h3>
+          <p>Watch the live dashboard fill up with dishes. No duplicates, no surprises.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-strip">
+    <div class="container">
+      <h2>Everything you need</h2>
+      <div class="features-grid">
+        <div class="feature-item">
+          <span class="feature-icon">📊</span>
+          <div class="feature-text">
+            <h3>Live Headcount</h3>
+            <p>Total attendees update instantly as guests RSVP.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">🍕</span>
+          <div class="feature-text">
+            <h3>No Duplicate Dishes</h3>
+            <p>Everyone sees what's already claimed before signing up.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">💬</span>
+          <div class="feature-text">
+            <h3>Text Notifications</h3>
+            <p>Automatic updates sent to host and guests via text.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">🔗</span>
+          <div class="feature-text">
+            <h3>Shareable Links</h3>
+            <p>Each guest gets a personal link — no login required.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">📱</span>
+          <div class="feature-text">
+            <h3>Mobile-First</h3>
+            <p>Designed to look great on any phone or screen.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <span class="feature-icon">⚡</span>
+          <div class="feature-text">
+            <h3>Real-Time Updates</h3>
+            <p>The food list updates live for everyone viewing the page.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <div class="container">
+      <h2>Ready to plan your potluck?</h2>
+      <p>It takes 2 minutes to set up. Your guests will love it.</p>
+      <a href="/create.html" class="btn btn-primary" style="font-size:1.1rem;padding:16px 40px;">
+        🎉 Create Your Potluck
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <p>Plan The Potluck &copy; 2026 &mdash; Made with 🍲 for food lovers everywhere</p>
+  </footer>
+
+  <div id="toast-container"></div>
+</body>
+</html>
