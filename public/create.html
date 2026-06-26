@@ -91,6 +91,18 @@
         <p class="form-hint" style="margin-top:8px;text-align:center;">You can add more guests after creating the event too.</p>
       </div>
 
+      <!-- Dish List -->
+      <div class="form-section">
+        <div class="form-section-title">🍽️ Dish List <span style="font-weight:400;font-size:.85rem;color:var(--text-light)">(optional)</span></div>
+        <p style="font-size:.875rem;margin-bottom:16px;">Add the dishes you need — guests (and you) can claim them on the event page. Leave empty if you want guests to write in their own dishes.</p>
+
+        <div id="dishSlotList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+
+        <button type="button" class="btn-add-guest" id="addDishBtn" style="width:100%;">
+          <span>+</span> Add a Dish
+        </button>
+      </div>
+
       <!-- Submit -->
       <div style="display:flex;flex-direction:column;gap:12px;align-items:center;">
         <button type="submit" class="btn btn-primary btn-full" id="submitBtn" style="font-size:1.1rem;padding:16px;">
@@ -147,6 +159,7 @@
     function removeGuest(id) {
       document.querySelector(`.guest-row[data-id="${id}"]`)?.remove();
     }
+    window.removeGuest = removeGuest;
 
     function escHtml(s) {
       return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -156,6 +169,42 @@
     addGuestRow(); addGuestRow();
 
     document.getElementById('addGuestBtn').addEventListener('click', () => addGuestRow());
+
+    // ── Dish slot rows ─────────────────────────────────────────────────────────
+    let dishCount = 0;
+    const DISH_CATEGORIES = ['', 'Appetizer', 'Main', 'Side', 'Salad', 'Bread', 'Dessert', 'Drink', 'Other'];
+
+    function addDishRow(name = '', category = '') {
+      dishCount++;
+      const id = dishCount;
+      const list = document.getElementById('dishSlotList');
+      const row = document.createElement('div');
+      row.className = 'guest-row';
+      row.dataset.dishId = id;
+      row.innerHTML = `
+        <div class="form-group" style="flex:2;">
+          ${id === 1 ? '<label>Dish Name</label>' : ''}
+          <input type="text" placeholder="e.g. Caesar Salad, Garlic Bread…" value="${escHtml(name)}"
+                 class="dish-slot-name" data-dish="${id}" />
+        </div>
+        <div class="form-group" style="flex:1;">
+          ${id === 1 ? '<label>Category</label>' : ''}
+          <select class="dish-slot-cat" data-dish="${id}" style="height:44px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:.95rem;">
+            ${DISH_CATEGORIES.map(c => `<option value="${c}" ${c===category?'selected':''}>${c||'— category —'}</option>`).join('')}
+          </select>
+        </div>
+        <button type="button" class="btn-remove-guest" onclick="removeDish(${id})" title="Remove dish"
+                style="${id === 1 ? 'margin-top:22px' : ''}">✕</button>
+      `;
+      list.appendChild(row);
+    }
+
+    function removeDish(id) {
+      document.querySelector(`.guest-row[data-dish-id="${id}"]`)?.remove();
+    }
+    window.removeDish = removeDish;
+
+    document.getElementById('addDishBtn').addEventListener('click', () => addDishRow());
 
     // ── Set min date to today ──────────────────────────────────────────────────
     document.getElementById('eventDate').min = new Date().toISOString().split('T')[0];
@@ -179,6 +228,14 @@
         }
       }
 
+      // Collect dish slots
+      const dishSlots = [];
+      for (const row of document.querySelectorAll('#dishSlotList .guest-row')) {
+        const name = row.querySelector('.dish-slot-name').value.trim();
+        const category = row.querySelector('.dish-slot-cat').value;
+        if (name) dishSlots.push({ name, category });
+      }
+
       const payload = {
         name:        form.querySelector('#eventName').value.trim(),
         date:        form.querySelector('#eventDate').value,
@@ -188,6 +245,7 @@
         host_name:   form.querySelector('#hostName').value.trim(),
         host_phone:  form.querySelector('#hostPhone').value.trim(),
         guests,
+        dish_slots:  dishSlots,
       };
 
       if (!payload.name || !payload.date || !payload.time || !payload.location || !payload.host_name || !payload.host_phone) {

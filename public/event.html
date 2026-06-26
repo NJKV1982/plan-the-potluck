@@ -7,6 +7,69 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* ── Dish Slot cards ─────────────────────────────────────────── */
+    .dish-slot-list { display: flex; flex-direction: column; gap: 10px; }
+    .dish-slot-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); background: #fff;
+      transition: border-color .2s;
+    }
+    .dish-slot-item.claimed { border-color: var(--green-mid); background: #f0faf4; }
+    .dish-slot-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      background: var(--border);
+    }
+    .dish-slot-item.claimed .dish-slot-dot { background: var(--green-mid); }
+    .dish-slot-info { flex: 1; min-width: 0; }
+    .dish-slot-name { font-weight: 600; font-size: .95rem; }
+    .dish-slot-cat  { font-size: .78rem; color: var(--text-light); margin-top: 1px; }
+    .dish-slot-claimer { font-size: .82rem; color: var(--green-dark); font-weight: 500; margin-top: 2px; }
+    .dish-slot-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-claim {
+      font-size: .8rem; padding: 5px 14px; border-radius: 20px; font-weight: 600; cursor: pointer;
+      border: 1.5px solid var(--green-mid); color: var(--green-dark); background: #fff;
+      transition: background .15s, color .15s;
+    }
+    .btn-claim:hover { background: var(--green-mid); color: #fff; }
+    .btn-unclaim {
+      font-size: .8rem; padding: 5px 14px; border-radius: 20px; font-weight: 600; cursor: pointer;
+      border: 1.5px solid #e0e0e0; color: var(--text-mid); background: #fff;
+    }
+    .btn-unclaim:hover { border-color: #f44336; color: #f44336; }
+    .btn-del-slot {
+      font-size: .78rem; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid #f5c6cb; color: #c0392b; background: #fff2f2;
+    }
+    .btn-del-slot:hover { background: #f44336; color: #fff; border-color: #f44336; }
+
+    /* ── Add-guest inline form ───────────────────────────────────── */
+    .add-guest-form {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+      padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .add-guest-form input {
+      flex: 1; min-width: 130px; height: 40px; padding: 0 12px;
+      border: 1.5px solid var(--border); border-radius: 8px; font-size: .9rem;
+    }
+    .add-guest-form input:focus { outline: none; border-color: var(--green-mid); }
+
+    /* ── Add-dish inline form (host) ─────────────────────────────── */
+    .add-dish-form {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+      padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .add-dish-form input {
+      flex: 2; min-width: 140px; height: 40px; padding: 0 12px;
+      border: 1.5px solid var(--border); border-radius: 8px; font-size: .9rem;
+    }
+    .add-dish-form select {
+      flex: 1; min-width: 120px; height: 40px; padding: 0 10px;
+      border: 1.5px solid var(--border); border-radius: 8px; font-size: .9rem;
+    }
+    .add-dish-form input:focus, .add-dish-form select:focus { outline: none; border-color: var(--green-mid); }
+  </style>
 </head>
 <body>
 
@@ -25,7 +88,6 @@
 
   <script>
   (() => {
-    // ── Helpers ────────────────────────────────────────────────────────────────
     const $ = id => document.getElementById(id);
     const esc = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -40,34 +102,26 @@
 
     function formatDate(d) {
       if (!d) return '';
-      try {
-        return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-      } catch { return d; }
+      try { return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }); }
+      catch { return d; }
     }
-
     function formatTime(t) {
       if (!t) return '';
-      try {
-        const [h, m] = t.split(':');
-        const d = new Date(); d.setHours(+h, +m);
-        return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
-      } catch { return t; }
+      try { const [h,m]=t.split(':'); const d=new Date(); d.setHours(+h,+m); return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }
+      catch { return t; }
     }
-
-    function initials(name) {
-      return (name || '?').split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2);
-    }
+    function initials(name) { return (name||'?').split(' ').map(p=>p[0]).join('').toUpperCase().slice(0,2); }
 
     // ── Parse URL ──────────────────────────────────────────────────────────────
-    const pathParts = window.location.pathname.split('/');
-    const eventId   = pathParts[2] || '';
-    const params    = new URLSearchParams(window.location.search);
-    const hostToken = params.get('h') || '';
-    const guestToken= params.get('g') || '';
+    const pathParts  = window.location.pathname.split('/');
+    const eventId    = pathParts[2] || '';
+    const params     = new URLSearchParams(window.location.search);
+    const hostToken  = params.get('h') || '';
+    const guestToken = params.get('g') || '';
 
     let state = { event: null, guest: null, isHost: false };
 
-    // ── API calls ──────────────────────────────────────────────────────────────
+    // ── API ────────────────────────────────────────────────────────────────────
     async function api(method, path, body) {
       const opts = { method, headers: { 'Content-Type': 'application/json' } };
       if (body) opts.body = JSON.stringify(body);
@@ -89,30 +143,36 @@
             renderDashboard();
             if (state.guest) {
               const fresh = msg.guests.find(g => g.guest_token === guestToken);
-              if (fresh) state.guest = fresh;
-              renderGuestActions();
+              if (fresh) { state.guest = fresh; renderGuestActions(); }
             }
+            if (state.isHost) renderHostPanel();
           } else if (msg.type === 'event_updated') {
-            state.event = { ...msg.event, guests: msg.event.guests || state.event.guests };
+            state.event = { ...msg.event, guests: msg.event.guests || state.event.guests,
+                            dish_slots: msg.event.dish_slots || state.event.dish_slots || [] };
             renderEventHero();
             renderDashboard();
+          } else if (msg.type === 'dish_slots_updated') {
+            state.event.dish_slots = msg.dish_slots;
+            renderDishSlots();
+            renderStats();
           }
         } catch {}
       };
       es.onerror = () => { $('liveIndicator').style.display = 'none'; };
     }
 
-    // ── Compute stats ──────────────────────────────────────────────────────────
-    function computeStats(guests) {
-      const attending = guests.filter(g => g.rsvp === 'yes');
-      const headcount = attending.reduce((s,g) => s + (g.headcount||1), 0);
-      const declined  = guests.filter(g => g.rsvp === 'no').length;
-      const pending   = guests.filter(g => g.rsvp === 'pending').length;
-      const dishes    = attending.filter(g => g.dish).map(g => ({ name: g.name, dish: g.dish }));
-      return { headcount, attending: attending.length, declined, pending, dishes };
+    // ── Stats ──────────────────────────────────────────────────────────────────
+    function computeStats(guests, dishSlots) {
+      const attending  = guests.filter(g => g.rsvp === 'yes');
+      const headcount  = attending.reduce((s,g) => s + (g.headcount||1), 0);
+      const declined   = guests.filter(g => g.rsvp === 'no').length;
+      const pending    = guests.filter(g => g.rsvp === 'pending').length;
+      const slotsClaimed = (dishSlots||[]).filter(s => s.claimed_by_guest_token).length;
+      const freeDishes = attending.filter(g => g.dish).length;
+      return { headcount, attending: attending.length, declined, pending, slotsClaimed, freeDishes };
     }
 
-    // ── Render: Event Hero ─────────────────────────────────────────────────────
+    // ── Render: Hero ───────────────────────────────────────────────────────────
     function renderEventHero() {
       const ev = state.event;
       const heroEl = $('eventHero');
@@ -131,47 +191,46 @@
       `;
     }
 
-    // ── Render: Stats Strip ────────────────────────────────────────────────────
+    // ── Render: Stats ──────────────────────────────────────────────────────────
     function renderStats() {
-      const stats = computeStats(state.event.guests);
+      const s = computeStats(state.event.guests, state.event.dish_slots);
       const el = $('statsStrip');
       if (!el) return;
+      const hasSlots = (state.event.dish_slots||[]).length > 0;
       el.innerHTML = `
         <div class="stats-inner">
           <div class="stat-item">
-            <div class="stat-num" id="statHeadcount">${stats.headcount}</div>
+            <div class="stat-num">${s.headcount}</div>
             <div class="stat-label">Attending</div>
           </div>
           <div class="stat-item">
-            <div class="stat-num">${stats.dishes.length}</div>
+            <div class="stat-num">${hasSlots ? s.slotsClaimed : s.freeDishes}</div>
             <div class="stat-label">Dishes Claimed</div>
           </div>
           <div class="stat-item">
-            <div class="stat-num">${stats.pending}</div>
+            <div class="stat-num">${s.pending}</div>
             <div class="stat-label">Pending RSVPs</div>
           </div>
         </div>
       `;
     }
 
-    // ── Render: Dashboard (shared) ─────────────────────────────────────────────
+    // ── Render: Dashboard ──────────────────────────────────────────────────────
     function renderDashboard() {
       renderStats();
       renderRoster();
-      renderMenu();
+      renderDishSlots();
+      renderFreeMenu();
     }
 
     function renderRoster() {
       const el = $('guestRoster');
       if (!el) return;
-      const guests = [...state.event.guests].sort((a,b) => {
-        const order = { yes:0, pending:1, no:2 };
-        return (order[a.rsvp]??1) - (order[b.rsvp]??1);
+      const guests = [...state.event.guests].sort((a,b)=>{
+        const o={yes:0,pending:1,no:2};
+        return (o[a.rsvp]??1)-(o[b.rsvp]??1);
       });
-      if (!guests.length) {
-        el.innerHTML = '<div class="empty-state">No guests added yet.</div>';
-        return;
-      }
+      if (!guests.length) { el.innerHTML='<div class="empty-state">No guests yet.</div>'; return; }
       el.innerHTML = guests.map(g => `
         <div class="roster-item">
           <div class="roster-avatar">${esc(initials(g.name))}</div>
@@ -181,23 +240,100 @@
           </div>
           <div class="roster-right">
             <span class="badge badge-${g.rsvp}">
-              ${g.rsvp === 'yes' ? '✅ Coming' : g.rsvp === 'no' ? '❌ Can\'t make it' : '⏳ Pending'}
+              ${g.rsvp==='yes'?'✅ Coming':g.rsvp==='no'?'❌ Can\'t make it':'⏳ Pending'}
             </span>
-            ${g.rsvp === 'yes' && g.headcount > 1 ? `<span class="roster-count">+${g.headcount-1} extra</span>` : ''}
+            ${g.rsvp==='yes'&&g.headcount>1?`<span class="roster-count">+${g.headcount-1} extra</span>`:''}
           </div>
         </div>
       `).join('');
     }
 
-    function renderMenu() {
-      const el = $('potluckMenu');
+    // ── Render: Dish Slots ─────────────────────────────────────────────────────
+    function renderDishSlots() {
+      const el = $('dishSlotSection');
       if (!el) return;
-      const stats = computeStats(state.event.guests);
-      if (!stats.dishes.length) {
-        el.innerHTML = '<div class="empty-state">No dishes claimed yet — be the first! 🍽️</div>';
+      const slots = state.event.dish_slots || [];
+      const myToken = guestToken || (hostToken ? `host:${hostToken}` : null);
+
+      if (!slots.length && !state.isHost) { el.style.display = 'none'; return; }
+      el.style.display = '';
+
+      let html = '';
+
+      if (!slots.length && state.isHost) {
+        html = '<div class="empty-state" style="margin-bottom:0">No dishes added yet. Add dishes below!</div>';
+      } else {
+        html = '<div class="dish-slot-list">' + slots.map(s => {
+          const claimed  = !!s.claimed_by_guest_token;
+          const isMine   = myToken && s.claimed_by_guest_token === myToken;
+          let actionBtn  = '';
+          if (!claimed) {
+            actionBtn = `<button class="btn-claim" onclick="claimSlot('${s.id}')">I'll bring this!</button>`;
+          } else if (isMine) {
+            actionBtn = `<button class="btn-unclaim" onclick="unclaimSlot('${s.id}')">Unclaim</button>`;
+          } else if (state.isHost && claimed) {
+            // Host can unclaim any dish (frees it without deleting the slot)
+            actionBtn = `<button class="btn-unclaim" onclick="unclaimSlot('${s.id}')" title="Free up this dish">Unclaim</button>`;
+          }
+          const delBtn = state.isHost
+            ? `<button class="btn-del-slot" onclick="deleteSlot('${s.id}')" title="Remove dish entirely">✕</button>`
+            : '';
+          return `
+            <div class="dish-slot-item ${claimed ? 'claimed' : ''}">
+              <div class="dish-slot-dot"></div>
+              <div class="dish-slot-info">
+                <div class="dish-slot-name">${esc(s.name)}</div>
+                ${s.category ? `<div class="dish-slot-cat">${esc(s.category)}</div>` : ''}
+                ${claimed ? `<div class="dish-slot-claimer">✅ ${esc(s.claimed_by_name)}</div>` : '<div class="dish-slot-cat">Available</div>'}
+              </div>
+              <div class="dish-slot-actions">
+                ${actionBtn}
+                ${delBtn}
+              </div>
+            </div>
+          `;
+        }).join('') + '</div>';
+      }
+
+      // Host: add dish form
+      if (state.isHost) {
+        html += `
+          <div class="add-dish-form" id="addDishForm">
+            <input type="text" id="newDishName" placeholder="Dish name, e.g. Mango Lassi…" maxlength="80" />
+            <select id="newDishCat">
+              <option value="">— category —</option>
+              <option>Appetizer</option><option>Main</option><option>Side</option>
+              <option>Salad</option><option>Bread</option><option>Dessert</option>
+              <option>Drink</option><option>Other</option>
+            </select>
+            <button class="btn btn-orange btn-sm" onclick="addDishSlot()">+ Add Dish</button>
+          </div>
+        `;
+      }
+
+      $('dishSlotContent').innerHTML = html;
+    }
+
+    // ── Render: Free-text menu (fallback if no slots) ──────────────────────────
+    function renderFreeMenu() {
+      const el = $('freeMenuSection');
+      if (!el) return;
+      const slots = state.event.dish_slots || [];
+      const freeDishes = state.event.guests
+        .filter(g => g.rsvp === 'yes' && g.dish)
+        .map(g => ({ name: g.name, dish: g.dish }));
+
+      // If there are dish slots, hide free-menu section (slots replace it)
+      if (slots.length > 0) { el.style.display = 'none'; return; }
+      el.style.display = '';
+
+      const menu = $('potluckMenu');
+      if (!menu) return;
+      if (!freeDishes.length) {
+        menu.innerHTML = '<div class="empty-state">No dishes claimed yet — be the first! 🍽️</div>';
         return;
       }
-      el.innerHTML = stats.dishes.map(d => `
+      menu.innerHTML = freeDishes.map(d => `
         <div class="menu-item">
           <div class="menu-dot"></div>
           <div>
@@ -213,29 +349,23 @@
       const el = $('guestActions');
       if (!el) return;
       const g = state.guest;
+      const hasSlots = (state.event.dish_slots||[]).length > 0;
       el.innerHTML = `
-        <!-- RSVP -->
         <div class="card" id="rsvpCard">
           <div class="card-title">📋 Your RSVP</div>
           <div class="rsvp-buttons">
-            <button class="btn-rsvp yes ${g.rsvp==='yes'?'active':''}" id="btnYes" onclick="handleRSVP('yes')">
-              ✅ Yes, I'm in!
-            </button>
-            <button class="btn-rsvp no ${g.rsvp==='no'?'active':''}" id="btnNo" onclick="handleRSVP('no')">
-              ❌ Can't make it
-            </button>
+            <button class="btn-rsvp yes ${g.rsvp==='yes'?'active':''}" onclick="handleRSVP('yes')">✅ Yes, I'm in!</button>
+            <button class="btn-rsvp no ${g.rsvp==='no'?'active':''}" onclick="handleRSVP('no')">❌ Can't make it</button>
           </div>
           ${g.rsvp === 'yes' ? `
           <div class="headcount-row">
             <label for="headcountInput">Total people coming (including you):</label>
             <input type="number" id="headcountInput" class="form-group input headcount-input"
-                   min="1" max="20" value="${g.headcount||1}"
-                   onchange="handleHeadcount(this.value)" />
+                   min="1" max="20" value="${g.headcount||1}" onchange="handleHeadcount(this.value)" />
           </div>` : ''}
         </div>
 
-        <!-- Dish sign-up -->
-        ${g.rsvp === 'yes' ? `
+        ${g.rsvp === 'yes' && !hasSlots ? `
         <div class="card">
           <div class="card-title">🍴 Your Dish</div>
           <p style="font-size:.875rem;margin-bottom:12px;">What are you bringing? Check the menu below to avoid duplicates.</p>
@@ -246,6 +376,12 @@
             <button class="btn btn-orange btn-sm" onclick="handleDishSave()">Save</button>
           </div>
           ${g.dish ? `<p style="margin-top:10px;font-size:.85rem;color:var(--green-dark);">✅ Currently signed up for: <strong>${esc(g.dish)}</strong></p>` : ''}
+        </div>` : ''}
+
+        ${g.rsvp === 'yes' && hasSlots ? `
+        <div class="card" style="background:#f0faf4;border:1.5px solid var(--green-mid);">
+          <div class="card-title" style="color:var(--green-dark);">🍽️ Pick Your Dish</div>
+          <p style="font-size:.875rem;margin-bottom:0;">Scroll down to the dish list and tap <strong>"I'll bring this!"</strong> next to any available dish.</p>
         </div>` : ''}
       `;
     }
@@ -258,7 +394,7 @@
       el.innerHTML = `
         <div class="host-panel">
           <div class="host-panel-header">
-            <h3 style="display:flex;align-items:center;gap:8px;">👑 Host Controls</h3>
+            <h3>👑 Host Controls</h3>
             <button class="btn btn-outline btn-sm" id="editToggleBtn" onclick="toggleEditMode()">✏️ Edit Event</button>
           </div>
 
@@ -296,13 +432,22 @@
           </div>
 
           <!-- Share link -->
-          <div class="share-strip" style="margin-top:${$('editForm') && $('editForm').style.display==='none' ? 0 : 16}px;">
-            <h3>🔗 Share Event Link</h3>
-            <p style="color:rgba(255,255,255,.78);font-size:.875rem;">Send this link to guests so they can RSVP.</p>
+          <div class="share-strip" style="margin-top:16px;">
+            <h3>🔗 One Link for Everyone</h3>
+            <p style="color:rgba(255,255,255,.78);font-size:.875rem;">Share this single link — friends enter their name, pick a dish, and set their headcount. They can come back anytime to edit.</p>
             <div class="share-link-box">
-              <input type="text" id="shareInput" value="${window.location.origin}/event/${ev.id}" readonly onclick="this.select()" />
-              <button class="btn btn-sm" style="background:#fff;color:var(--green-dark);white-space:nowrap;"
-                      onclick="copyShare()">Copy</button>
+              <input type="text" id="shareInput" value="${window.location.origin}/join/${ev.id}" readonly onclick="this.select()" />
+              <button class="btn btn-sm" style="background:#fff;color:var(--green-dark);white-space:nowrap;" onclick="copyShare()">Copy</button>
+            </div>
+          </div>
+
+          <!-- Add Guest -->
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.2);">
+            <h3 style="color:#fff;margin-bottom:8px;">➕ Add a Guest</h3>
+            <div class="add-guest-form" style="border:none;padding:0;margin:0;">
+              <input type="text" id="newGuestName" placeholder="Guest name" style="background:rgba(255,255,255,.9);" />
+              <input type="tel" id="newGuestPhone" placeholder="+1 555 000 0000" style="background:rgba(255,255,255,.9);" />
+              <button class="btn btn-sm" style="background:#fff;color:var(--green-dark);white-space:nowrap;" onclick="addGuest()">Add &amp; Invite</button>
             </div>
           </div>
         </div>
@@ -312,31 +457,89 @@
     // ── Actions ────────────────────────────────────────────────────────────────
 
     async function handleRSVP(rsvp) {
-      const headcount = parseInt(document.getElementById('headcountInput')?.value || 1);
+      const hc = parseInt($('headcountInput')?.value || 1);
       try {
-        const updated = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp, headcount });
-        state.guest = updated;
+        state.guest = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp, headcount: hc });
         renderGuestActions();
-        toast(rsvp === 'yes' ? "✅ You're in! Sign up for a dish below." : "We'll miss you! 💔");
+        toast(rsvp === 'yes' ? "✅ You're in!" : "We'll miss you! 💔");
       } catch(e) { toast(e.message, 'error'); }
     }
 
     async function handleHeadcount(val) {
       const hc = Math.max(1, parseInt(val)||1);
       try {
-        const updated = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp: state.guest.rsvp, headcount: hc });
-        state.guest = updated;
+        state.guest = await api('POST', `/api/guests/${guestToken}/rsvp`, { rsvp: state.guest.rsvp, headcount: hc });
         toast(`Headcount updated to ${hc} 👍`);
       } catch(e) { toast(e.message, 'error'); }
     }
 
     async function handleDishSave() {
-      const dish = document.getElementById('dishInput')?.value.trim() || '';
+      const dish = $('dishInput')?.value.trim() || '';
       try {
-        const updated = await api('POST', `/api/guests/${guestToken}/dish`, { dish });
-        state.guest = updated;
+        state.guest = await api('POST', `/api/guests/${guestToken}/dish`, { dish });
         renderGuestActions();
         toast(dish ? `🍴 Saved: "${dish}"` : 'Dish removed.');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function claimSlot(slotId) {
+      try {
+        const data = await api('POST', `/api/dish-slots/${slotId}/claim`,
+          guestToken ? { guest_token: guestToken } : { host_token: hostToken });
+        state.event.dish_slots = data.dish_slots;
+        renderDishSlots();
+        renderStats();
+        toast('🍴 Dish claimed!');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function unclaimSlot(slotId) {
+      try {
+        const data = await api('DELETE', `/api/dish-slots/${slotId}/claim`,
+          guestToken ? { guest_token: guestToken } : { host_token: hostToken });
+        state.event.dish_slots = data.dish_slots;
+        renderDishSlots();
+        renderStats();
+        toast('Dish unclaimed.');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function addDishSlot() {
+      const name = $('newDishName')?.value.trim();
+      const category = $('newDishCat')?.value || '';
+      if (!name) { toast('Enter a dish name.', 'error'); return; }
+      try {
+        const data = await api('POST', `/api/events/${eventId}/dish-slots`, { host_token: hostToken, name, category });
+        state.event.dish_slots = data.dish_slots;
+        renderDishSlots();
+        renderStats();
+        if ($('newDishName')) $('newDishName').value = '';
+        if ($('newDishCat'))  $('newDishCat').value  = '';
+        toast(`Added: ${name}`);
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function deleteSlot(slotId) {
+      try {
+        const data = await api('DELETE', `/api/events/${eventId}/dish-slots/${slotId}`, { host_token: hostToken });
+        state.event.dish_slots = data.dish_slots;
+        renderDishSlots();
+        renderStats();
+        toast('Dish removed.');
+      } catch(e) { toast(e.message, 'error'); }
+    }
+
+    async function addGuest() {
+      const name  = $('newGuestName')?.value.trim();
+      const phone = $('newGuestPhone')?.value.trim();
+      if (!name || !phone) { toast('Name and phone required.', 'error'); return; }
+      try {
+        const data = await api('POST', `/api/events/${eventId}/guests`, { host_token: hostToken, name, phone });
+        state.event.guests = data.guests;
+        renderDashboard();
+        renderHostPanel();
+        renderGuestLinks();
+        toast(`✅ ${name} added and invited!`);
       } catch(e) { toast(e.message, 'error'); }
     }
 
@@ -359,7 +562,7 @@
           location:    $('editLocation')?.value.trim(),
           description: $('editDesc')?.value.trim(),
         });
-        state.event = { ...updated, guests: state.event.guests };
+        state.event = { ...updated, guests: state.event.guests, dish_slots: state.event.dish_slots };
         toggleEditMode();
         renderEventHero();
         toast('✅ Event updated!');
@@ -373,13 +576,35 @@
         .catch(() => { inp.select(); document.execCommand('copy'); toast('Link copied! 📋'); });
     }
 
-    // Make handlers global
-    window.handleRSVP = handleRSVP;
+    function renderGuestLinks() {
+      const el = $('guestLinkList');
+      if (!el) return;
+      el.innerHTML = state.event.guests.map(g => `
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-weight:600;min-width:120px;">${esc(g.name)}</span>
+          <code style="font-size:.78rem;color:var(--text-mid);flex:1;word-break:break-all;">
+            ${window.location.origin}/event/${state.event.id}?g=${g.guest_token}
+          </code>
+          <button class="btn btn-outline btn-sm"
+                  onclick="navigator.clipboard.writeText('${window.location.origin}/event/${state.event.id}?g=${g.guest_token}').then(()=>toast('Copied!'))">
+            Copy
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // Make global
+    window.handleRSVP      = handleRSVP;
     window.handleHeadcount = handleHeadcount;
-    window.handleDishSave = handleDishSave;
-    window.toggleEditMode = toggleEditMode;
-    window.handleEditSave = handleEditSave;
-    window.copyShare = copyShare;
+    window.handleDishSave  = handleDishSave;
+    window.claimSlot       = claimSlot;
+    window.unclaimSlot     = unclaimSlot;
+    window.addDishSlot     = addDishSlot;
+    window.deleteSlot      = deleteSlot;
+    window.addGuest        = addGuest;
+    window.toggleEditMode  = toggleEditMode;
+    window.handleEditSave  = handleEditSave;
+    window.copyShare       = copyShare;
 
     // ── Full page render ────────────────────────────────────────────────────────
     function renderPage() {
@@ -390,16 +615,28 @@
           <div class="stats-strip" id="statsStrip"></div>
 
           <div class="event-body">
-            ${state.isHost ? '<div id="hostPanel"></div>' : ''}
-            ${state.guest ? '<div id="guestActions"></div>' : ''}
+            ${state.isHost  ? '<div id="hostPanel"></div>' : ''}
+            ${state.guest   ? '<div id="guestActions"></div>' : ''}
 
-            <!-- Shared dashboard -->
+            <!-- Dish list (host-defined slots) -->
+            <div class="card" id="dishSlotSection">
+              <div class="card-title">🍽️ Dish List</div>
+              <p style="font-size:.82rem;color:var(--text-light);margin-bottom:14px;">
+                ${state.isHost
+                  ? 'Add dishes guests can claim. Everyone sees who is bringing what in real time.'
+                  : 'Tap "I\'ll bring this!" next to any available dish to claim it.'}
+              </p>
+              <div id="dishSlotContent"></div>
+            </div>
+
+            <!-- Guest roster -->
             <div class="card">
               <div class="card-title">👥 Guest Roster</div>
               <div class="guest-roster" id="guestRoster"></div>
             </div>
 
-            <div class="card">
+            <!-- Free-text menu (only shown when no dish slots) -->
+            <div class="card" id="freeMenuSection">
               <div class="card-title">🍽️ The Potluck Menu</div>
               <p style="font-size:.82rem;color:var(--text-light);margin-bottom:14px;">
                 Check what's already claimed before picking your dish!
@@ -407,25 +644,12 @@
               <div class="menu-grid" id="potluckMenu"></div>
             </div>
 
-            <!-- Guest links (host only) -->
+            <!-- Guest invite links (host only) -->
             ${state.isHost ? `
             <div class="card">
               <div class="card-title">📱 Guest Invite Links</div>
               <p style="font-size:.875rem;margin-bottom:14px;">Individual links for each guest:</p>
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                ${ev.guests.map(g => `
-                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <span style="font-weight:600;min-width:120px;">${esc(g.name)}</span>
-                    <code style="font-size:.78rem;color:var(--text-mid);flex:1;word-break:break-all;">
-                      ${window.location.origin}/event/${ev.id}?g=${g.guest_token}
-                    </code>
-                    <button class="btn btn-outline btn-sm"
-                            onclick="navigator.clipboard.writeText('${window.location.origin}/event/${ev.id}?g=${g.guest_token}').then(()=>toast('Copied!'))">
-                      Copy
-                    </button>
-                  </div>
-                `).join('')}
-              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;" id="guestLinkList"></div>
             </div>` : ''}
           </div>
         </div>
@@ -433,8 +657,8 @@
 
       renderEventHero();
       renderDashboard();
-      if (state.isHost) renderHostPanel();
-      if (state.guest) renderGuestActions();
+      if (state.isHost) { renderHostPanel(); renderGuestLinks(); }
+      if (state.guest)  renderGuestActions();
     }
 
     // ── Init ───────────────────────────────────────────────────────────────────
@@ -443,20 +667,16 @@
         $('app').innerHTML = '<div style="text-align:center;padding:60px 20px;"><h2>Event not found.</h2><a href="/" class="btn btn-primary" style="margin-top:20px;">← Back Home</a></div>';
         return;
       }
-
       try {
-        // Fetch event (pass host token if present)
         const url = `/api/events/${eventId}${hostToken ? `?h=${hostToken}` : ''}`;
-        const ev = await api('GET', url);
-        state.event = ev;
+        const ev  = await api('GET', url);
+        state.event  = ev;
         state.isHost = !!ev.isHost;
+        if (!state.event.dish_slots) state.event.dish_slots = [];
 
-        // Fetch guest if token present
         if (guestToken) {
-          try {
-            const g = await api('GET', `/api/guests/${guestToken}`);
-            state.guest = g;
-          } catch { /* invalid token — render as observer */ }
+          try { state.guest = await api('GET', `/api/guests/${guestToken}`); }
+          catch { /* invalid token — render as observer */ }
         }
 
         document.title = `${ev.name} – Plan The Potluck`;
