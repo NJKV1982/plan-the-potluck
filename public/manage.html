@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Events – Plan The Potluck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .manage-header {
+      background: linear-gradient(135deg, var(--green-dark) 0%, #1e5c3a 60%, #52b788 100%);
+      padding: 48px 20px 56px;
+      text-align: center;
+      color: #fff;
+    }
+    .manage-header h1 { color: #fff; margin-bottom: 8px; }
+    .manage-header p  { color: rgba(255,255,255,.82); font-size: 1rem; }
+
+    .manage-body {
+      max-width: 700px;
+      margin: -28px auto 60px;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .event-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1.5px solid transparent;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .event-card:hover { border-color: var(--green-mid); box-shadow: 0 4px 24px rgba(0,0,0,.12); }
+
+    .event-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .event-card-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .event-card-date {
+      font-size: .82rem;
+      color: var(--text-light);
+      margin-top: 2px;
+    }
+    .event-card-location {
+      font-size: .82rem;
+      color: var(--text-mid);
+    }
+
+    .event-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .event-stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: .82rem;
+      color: var(--text-mid);
+    }
+    .event-stat strong { color: var(--text-dark); font-weight: 700; }
+
+    .event-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .btn-manage {
+      padding: 9px 20px;
+      background: var(--green-dark);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background .15s;
+    }
+    .btn-manage:hover { background: #1e5c3a; }
+
+    .btn-copy-join {
+      padding: 9px 18px;
+      background: #fff;
+      color: var(--green-dark);
+      border: 1.5px solid var(--green-mid);
+      border-radius: 8px;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-copy-join:hover { background: var(--green-pale); }
+
+    .empty-manage {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .empty-manage .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-manage h3 { margin-bottom: 8px; }
+    .empty-manage p { color: var(--text-mid); font-size: .9rem; margin-bottom: 24px; }
+
+    .loading-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      padding: 32px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .badge-upcoming { background: #e8f5e9; color: #2e7d32; }
+    .badge-past     { background: #f5f5f5; color: #757575; }
+
+    @media (min-width: 480px) {
+      .event-card { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><span>🍽️</span> Plan The Potluck</a>
+      <a href="/manage" class="btn btn-outline btn-sm" style="font-size:.82rem;">📋 My Events</a>
+    </div>
+  </nav>
+
+  <div class="manage-header">
+    <div style="font-size:2.5rem;margin-bottom:12px;">📋</div>
+    <h1>My Events</h1>
+    <p>All the potlucks you've hosted — click any to manage it.</p>
+  </div>
+
+  <div class="manage-body" id="manageBody">
+    <div class="loading-card"><div class="spinner"></div></div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script>
+  (() => {
+    const LS_KEY = 'ptluck_hosted_events';
+
+    function toast(msg, type = 'success') {
+      const c = document.getElementById('toast-container');
+      const t = document.createElement('div');
+      t.className = `toast toast-${type}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3000);
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      try {
+        return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
+          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+        });
+      } catch { return d; }
+    }
+
+    function formatTime(t) {
+      if (!t) return '';
+      try {
+        const [h, m] = t.split(':');
+        const d = new Date(); d.setHours(+h, +m);
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      } catch { return t; }
+    }
+
+    function isPast(dateStr) {
+      if (!dateStr) return false;
+      return new Date(dateStr + 'T23:59:59') < new Date();
+    }
+
+    function getSavedEvents() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function esc(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function copyJoinLink(eventId) {
+      const link = `${window.location.origin}/join/${eventId}`;
+      navigator.clipboard?.writeText(link)
+        .then(() => toast('📋 Join link copied!'))
+        .catch(() => {
+          const el = document.createElement('textarea');
+          el.value = link;
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand('copy');
+          el.remove();
+          toast('📋 Join link copied!');
+        });
+    }
+
+    window.copyJoinLink = copyJoinLink;
+
+    async function loadEvents() {
+      const saved = getSavedEvents();
+      const body = document.getElementById('manageBody');
+
+      if (!saved.length) {
+        body.innerHTML = `
+          <div class="empty-manage">
+            <div class="empty-icon">🍽️</div>
+            <h3>No events yet</h3>
+            <p>Create your first potluck and it'll appear here so you can manage it anytime.</p>
+            <a href="/create.html" class="btn btn-primary" style="font-size:1rem;padding:14px 32px;">
+              🎉 Create a Potluck
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      // Fetch live data for each saved event
+      const results = await Promise.all(saved.map(async ev => {
+        try {
+          const res = await fetch(`/api/events/${ev.eventId}?h=${ev.hostToken}`);
+          if (!res.ok) return { ...ev, error: true };
+          const data = await res.json();
+          return { ...ev, ...data, live: true };
+        } catch {
+          return { ...ev, error: true };
+        }
+      }));
+
+      // Sort: upcoming first, then past
+      results.sort((a, b) => {
+        const aDate = new Date((a.date || '') + 'T00:00:00');
+        const bDate = new Date((b.date || '') + 'T00:00:00');
+        const aPast = isPast(a.date);
+        const bPast = isPast(b.date);
+        if (aPast !== bPast) return aPast ? 1 : -1;
+        return aPast ? bDate - aDate : aDate - bDate;
+      });
+
+      body.innerHTML = results.map(ev => {
+        if (ev.error) {
+          return `
+            <div class="event-card" style="opacity:.6;">
+              <div class="event-card-top">
+                <div>
+                  <div class="event-card-name">${esc(ev.name || 'Unknown Event')}</div>
+                  <div class="event-card-date">${esc(formatDate(ev.date))} · ${esc(ev.location || '')}</div>
+                </div>
+              </div>
+              <div style="font-size:.82rem;color:var(--text-light);">Could not load event data.</div>
+            </div>
+          `;
+        }
+
+        const guests = ev.guests || [];
+        const attending = guests.filter(g => g.rsvp === 'yes');
+        const headcount = attending.reduce((s, g) => s + (g.headcount || 1), 0);
+        const pending   = guests.filter(g => g.rsvp === 'pending').length;
+        const declined  = guests.filter(g => g.rsvp === 'no').length;
+        const dishSlots = ev.dish_slots || [];
+        const claimed   = dishSlots.filter(s => s.claimed_by_guest_token).length;
+        const past      = isPast(ev.date);
+
+        return `
+          <div class="event-card">
+            <div class="event-card-top">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                  <div class="event-card-name">${esc(ev.name)}</div>
+                  <span class="badge ${past ? 'badge-past' : 'badge-upcoming'}" style="font-size:.72rem;">
+                    ${past ? 'Past' : 'Upcoming'}
+                  </span>
+                </div>
+                <div class="event-card-date">📅 ${esc(formatDate(ev.date))} · 🕐 ${esc(formatTime(ev.time))}</div>
+                <div class="event-card-location">📍 ${esc(ev.location)}</div>
+              </div>
+            </div>
+
+            <div class="event-stats">
+              <div class="event-stat">👥 <strong>${headcount}</strong> attending</div>
+              <div class="event-stat">⏳ <strong>${pending}</strong> pending</div>
+              ${declined ? `<div class="event-stat">❌ <strong>${declined}</strong> declined</div>` : ''}
+              ${dishSlots.length ? `<div class="event-stat">🍽️ <strong>${claimed}/${dishSlots.length}</strong> dishes claimed</div>` : ''}
+            </div>
+
+            <div class="event-card-actions">
+              <a href="/event/${ev.eventId}?h=${ev.hostToken}" class="btn-manage">
+                👑 Manage Event
+              </a>
+              <button class="btn-copy-join" onclick="copyJoinLink('${ev.eventId}')">
+                📋 Copy Join Link
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    loadEvents();
+  })();
+  </script>
+</body>
+</html>

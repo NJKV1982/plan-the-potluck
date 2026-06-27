@@ -13,6 +13,7 @@
   <nav class="nav">
     <div class="nav-inner">
       <a href="/" class="nav-logo"><span>🍽️</span> Plan The Potluck</a>
+      <a href="/manage" class="btn btn-outline btn-sm" style="font-size:.82rem;">📋 My Events</a>
     </div>
   </nav>
 
@@ -264,6 +265,21 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+
+        // Save event to localStorage for My Events dashboard
+        try {
+          const LS_KEY = 'ptluck_hosted_events';
+          const saved = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+          saved.unshift({
+            eventId:   data.eventId,
+            hostToken: data.hostToken,
+            name:      payload.name,
+            date:      payload.date,
+            location:  payload.location,
+            createdAt: new Date().toISOString(),
+          });
+          localStorage.setItem(LS_KEY, JSON.stringify(saved));
+        } catch {}
 
         // Redirect to host view
         window.location.href = `/event/${data.eventId}?h=${data.hostToken}`;

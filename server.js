@@ -316,6 +316,10 @@ app.get('/join/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'join.html'));
 });
 
+app.get('/manage', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'manage.html'));
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log('\x1b[32m%s\x1b[0m', `\n🍽️  Plan The Potluck running at http://localhost:${PORT}\n`);
